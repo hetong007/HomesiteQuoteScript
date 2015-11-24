@@ -1,5 +1,5 @@
 library(readr)
-library(xgboost)
+library(mxnet)
 
 #my favorite seed^^
 
@@ -51,18 +51,72 @@ for (f in 1:p) {
   }
 }
 
-save(x,y,trind,teind,cat.list, file='../input/xgboost.dat.rda')
+save(x,y,trind,teind,cat.list,id, file='../input/xgboost.dat.rda')
 
 load('../input/xgboost.dat.rda')
 
 # one hot encoding
 
-val.ind <-sample(trind,2000)
-nonval.ind <- setdiff(trind, val.ind)
+ohe = function(x, name, order = FALSE) {
+  res = model.matrix(~.-1,data.frame(factor(x)))
+  res = res[,-ncol(res),drop=FALSE]
+  if (order && ncol(res)>=2) {
+    for (i in 2:ncol(res)) {
+      res[,i] = as.numeric(res[,i] | res[,i-1])
+    }
+  }
+  colnames(res) = paste(name, 1:ncol(res), sep='_')
+  return(res)
+}
+
+tmpx = lapply(cat.list, function(i) ohe(x[,i], colnames(x)[i]))
+tmpx = do.call(cbind,tmpx)
+x = cbind(x[,-cat.list], tmpx)
+
+# Normalization
+
+sds = apply(x,2,sd)
+ind = which(sds == 0)
+x = x[,-ind]
+
+normDat = function(x) {
+  mu = mean(x)
+  sig = sd(x)
+  res = (x-mu)/sig
+  return(res)
+}
+
+for (i in 1:ncol(x)) {
+  cat(i,'\r')
+  x[,i] = normDat(x[,i])
+}
+
+
+save(x,y,trind,teind,id, file='../input/numeric.dat.rda')
 
 # Train mxnet
 
-pred1 <- predict(clf, data.matrix(test[,feature.names]))
-submission <- data.frame(QuoteNumber=test$QuoteNumber, QuoteConversion_Flag=pred1)
+load('../input/numeric.dat.rda')
+
+val.ind <-sample(trind,2000)
+nonval.ind <- setdiff(trind, val.ind)
+val.dat = list(data=data.matrix(x[val.ind,]),
+               label=y[val.ind])
+
+preds = rep(0, length(teind))
+L = 1
+for (i in 1:L) {
+  mx.set.seed(i)
+  model <- mx.mlp(data.matrix(x[nonval.ind,]), y[nonval.ind], hidden_node=400, 
+                  out_node=2, out_activation="softmax",
+                  num.round=20, array.batch.size=100, 
+                  learning.rate=0.001, momentum=0.9, 
+                  dropout = 1, activation = "tanh",
+                  eval.data = val.dat, eval.metric=mx.metric.accuracy)
+  pred1 <- predict(model, data.matrix(x[teind,]))
+  preds = preds + pred1[2,]
+}
+
+submission <- data.frame(QuoteNumber=id[teind], QuoteConversion_Flag=preds/L)
 cat("saving the submission file\n")
-write_csv(submission, "xgb1.csv")
+write_csv(submission, "mxnet1.csv")
