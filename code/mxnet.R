@@ -111,7 +111,7 @@ for (i in 1:L) {
                   out_node=2, out_activation="softmax",
                   num.round=20, array.batch.size=100, 
                   learning.rate=0.001, momentum=0.9, 
-                  dropout = 1, activation = "tanh",
+                  dropout = 0, activation = "tanh",
                   eval.data = val.dat, eval.metric=mx.metric.accuracy)
   pred1 <- predict(model, data.matrix(x[teind,]))
   preds = preds + pred1[2,]
