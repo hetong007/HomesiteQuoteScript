@@ -53,6 +53,8 @@ for (f in 1:p) {
 
 save(x,y,trind,teind,id,cat.list, file='../input/xgboost.dat.rda')
 
+set.seed(512)
+
 val.ind <-sample(trind,2000)
 nonval.ind <- setdiff(trind, val.ind)
 
@@ -80,7 +82,7 @@ clf <- xgb.train(   params              = param,
                     maximize            = TRUE
 )
 
-pred1 <- predict(clf, data.matrix(x[teind,]))
+pred1 <- predict(clf, data.matrix(x[teind,]), ntreelimit = clf$bestInd)
 submission <- data.frame(QuoteNumber=id[teind], QuoteConversion_Flag=pred1)
 cat("saving the submission file\n")
 write_csv(submission, "xgb1.csv")

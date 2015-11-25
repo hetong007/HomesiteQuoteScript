@@ -91,27 +91,27 @@ for (i in 1:ncol(x)) {
   x[,i] = normDat(x[,i])
 }
 
-
 save(x,y,trind,teind,id, file='../input/numeric.dat.rda')
 
 # Train mxnet
 
 load('../input/numeric.dat.rda')
 
+set.seed(0)
 val.ind <-sample(trind,2000)
 nonval.ind <- setdiff(trind, val.ind)
 val.dat = list(data=data.matrix(x[val.ind,]),
                label=y[val.ind])
 
 preds = rep(0, length(teind))
-L = 1
+L = 5
 for (i in 1:L) {
   mx.set.seed(i)
-  model <- mx.mlp(data.matrix(x[nonval.ind,]), y[nonval.ind], hidden_node=400, 
+  model <- mx.mlp(data.matrix(x[nonval.ind,]), y[nonval.ind], hidden_node=c(400,100), 
                   out_node=2, out_activation="softmax",
-                  num.round=20, array.batch.size=100, 
-                  learning.rate=0.001, momentum=0.9, 
-                  dropout = 0, activation = "tanh",
+                  num.round=12, array.batch.size=50, 
+                  learning.rate=0.01, momentum=0.5, 
+                  dropout = 0.5, activation = "tanh",
                   eval.data = val.dat, eval.metric=mx.metric.accuracy)
   pred1 <- predict(model, data.matrix(x[teind,]))
   preds = preds + pred1[2,]
